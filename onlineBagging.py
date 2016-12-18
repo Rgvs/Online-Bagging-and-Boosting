@@ -14,6 +14,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import BaggingClassifier
 import csv
 from collections import Counter
+import time
 
 global train_data
 global train_class
@@ -65,7 +66,6 @@ def LoadData1(path):
                     data.append(X)
             else:
                 data.append(X)
-
     shuffle(data)
     size = int(len(data) * 0.8)
     train_data = data[0:size]
@@ -79,58 +79,60 @@ def LoadData1(path):
 
 def addModels():
     global models
-    for i in range(0,10):
+    for i in range(0,100):
         models.append(linear_model.Perceptron())
 
 def fit(data,classdata):
     global models
     global kArr
     global train_class
-    for i in range(0, 10):
+    for i in range(0, 100):
         k = np.random.poisson(1, 1)[0]
+        if (k>999):
+            k = 999
         kArr[k]+=1
         for j in range(0,k):
+            models[i].partial_fit(data, classdata, classes=["vgood","good","acc","unacc"])
 
-            models[i].partial_fit(data,classdata)
-
-def initial_fit(data,classdata):
-    global models
-    global train_class
-    for i in range(0, 10):
-        models[i].fit(data,classdata)
 
 def predict(test_data):
     prediction = []
-    for i in range(0, 10):
+    for i in range(0, 100):
         prediction.append(models[i].predict(test_data))
     prediction = np.array(prediction).transpose()
     Final = []
     for each in prediction:
         Final.append(Counter(each).most_common(1)[0][0])
     #print (test_class, Final)
-    print ("Accuracy is ", f1score(test_class, np.array(Final)))
+    print ("Precision is ", precision(test_class, np.array(Final)))
+    print ("Recall is ", recall(test_class, np.array(Final)))
+    print ("F1 score is ", f1score(test_class, np.array(Final)))
+    
 def main():
     global models
     global  kArr
     models = []
-    kArr = [0]*100
+    kArr = [0]*1000
     LoadData1("./car.data.txt")
     addModels()
+    
     start = 0
     end = len(train_data)
-    offset = 200
-    data = train_data[start:start + offset]
-    classdata = train_class[start:start + offset]
-    offset=20
-    start += offset
-    initial_fit(data, classdata)
-    while(start <= end):
+    offset = 20
+    count = 0
+    start_time = time.time()
+    while(start < end):
+        if (count%40 == 0):
+            print (count)
+        count += 1
+        
         data = train_data[start:start + offset]
         classdata = train_class[start:start + offset]
         start += offset
         fit(data,classdata)
     predict(test_data)
-    print('kArr',kArr)
+    print(time.time()-start_time)
+    #print('kArr',kArr)
 
 if __name__ == "__main__":main()
 

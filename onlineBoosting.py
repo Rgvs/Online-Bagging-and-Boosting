@@ -1,4 +1,4 @@
-import random as rn
+from random import shuffle
 import numpy as np
 from collections import defaultdict
 from sklearn.metrics import f1_score, precision_score, recall_score
@@ -10,10 +10,12 @@ from sklearn import linear_model
 from sklearn import preprocessing
 from sklearn.ensemble import RandomForestClassifier
 import pandas
-import matplotlib.pyplot as plt
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import BaggingClassifier
+import csv
+from collections import Counter
+import time 
 
 global train_data
 global train_class
@@ -27,13 +29,13 @@ global epsilon #= [0 for i in range(self.M)]
 global M
 
 def f1score(y_true,y_pred):
-    f1=f1_score(y_true, y_pred, average='micro')
+    f1=f1_score(y_true, y_pred, average='macro')
     return f1
 def precision(y_true,y_pred):
-    pre=precision_score(y_true, y_pred, average='micro')
+    pre = precision_score(y_true, y_pred, average='macro')
     return pre
 def recall(y_true,y_pred):
-    recall=recall_score(y_true, y_pred, average='micro')
+    recall = recall_score(y_true, y_pred, average='macro')
     return recall
 
 
@@ -42,48 +44,52 @@ def LoadData1(path):
     global train_class
     global test_data
     global test_class
-
-    data = pandas.read_csv(path, sep=",", header=None)
-    print('data', data)
-    data = data.replace(['vhigh', 'high', 'med', 'low',
-                         '2', '3', '4', '5more', 'more',
-                         'small', 'big'],
-                        [int(4), int(3), 2, 1, 2, 3, 4, 6, 6, 1, 3])
-    print(data)
-    minority_majority_class_ratio_C = data[6].value_counts()[2] + data[6].value_counts()[3] / data[6].value_counts()[
-        0] + data[6].value_counts()[1]
-    print("vvvv", data[6].value_counts()[0], minority_majority_class_ratio_C)
-
-
-    print('process', data)
-    data = data.values.tolist()
-    rn.shuffle(data)
-
-    # deviding the data in to test set and training set
+    data = []
+    with open(path, 'rb') as csvfile:
+        data1 = csv.reader(csvfile, delimiter=',', quotechar='|')
+        for each in data1:
+            X = []
+            for x in each:
+                #print x
+                if (x == "vhigh" or x == "5more" or x == "more"):
+                    x=3
+                elif (x == "high" or x == "big" or x == "4"):
+                    x=2
+                elif (x == "med" or x == "3"):
+                    x=1
+                elif (x == "low" or x == "small" or x == "2"):
+                    x=0
+                X.append(x)
+            if (X[-1] == "acc"):
+                for i in range(3):
+                    data.append(X)
+            elif (X[-1] == "good"):
+                for i in range(17):
+                    data.append(X)
+            elif (X[-1] == "vgood"):
+                for i in range(18):
+                    data.append(X)
+            else:
+                data.append(X)
+    shuffle(data)
     size = int(len(data) * 0.8)
     train_data = data[0:size]
     test_data = data[size:len(data)]
-
     train_class = np.array(train_data)[:, len(train_data[0]) - 1]
-    print(train_class, "\n")
     train_data = np.array(train_data)[:, range(0, len(train_data[0]) - 1)]
-
-    train_data = [[int(j) for j in i] for i in train_data]
-
-    print(isinstance(train_data[0][0], int))
     test_class = np.array(test_data)[:, len(test_data[0]) - 1]
     test_data = np.array(test_data)[:, range(0, len(test_data[0]) - 1)]
+    train_data = [[int(j) for j in i] for i in train_data]
     test_data = [[int(j) for j in i] for i in test_data]
 
 def addModels():
     global models
     global M
     for i in range(0,M):
-        models.append(linear_model.SGDClassifier())#linear_model.Perceptron()//class_weight="balanced"
+        models.append(linear_model.Perceptron())#linear_model.Perceptron()//class_weight="balanced"
 
 def fit(data,classdata):
     global models
-    global kArr
     global train_class
     global M
     global wrongWeight
@@ -96,7 +102,7 @@ def fit(data,classdata):
         if not k:
             continue
         for j in range(0,k):
-            models[i].partial_fit(data,classdata)
+            models[i].partial_fit(data, classdata, classes=["vgood","good","acc","unacc"])
         prediction = models[i].predict(data)
         if compare(prediction, classdata):
             correctWeight[i] += lam
@@ -106,11 +112,10 @@ def fit(data,classdata):
             wrongWeight[i] += lam
             lam *= (correctWeight[i] + wrongWeight[i]) / \
                        (2 * wrongWeight[i])
-        print("For" + str(i) + ' Accuracy %f' % (f1score(classdata, prediction)))
+        #print("For" + str(i) + ' Accuracy %f' % (f1score(classdata, prediction)))
 
 def initial_fit(data,classdata):
     global models
-    global kArr
     global train_class
     global M
     global wrongWeight
@@ -119,27 +124,21 @@ def initial_fit(data,classdata):
 
     lam = 1.0
     for i in range(0, M):
-        k = np.random.poisson(lam)
-        if not k:
-            k+=1
-        for j in range(0, k):
-            models[i].fit(data, classdata)
-        prediction = models[i].predict(data)
-        if compare(prediction,classdata):
-            correctWeight[i] += lam
-            lam *= (correctWeight[i] + wrongWeight[i]) / \
-                   (2 * correctWeight[i])
-        else:
-            wrongWeight[i] += lam
-            lam *= (correctWeight[i] + wrongWeight[i]) / \
-                   (2 * wrongWeight[i])
-        print("For" + str(i) + ' Accuracy %f' % (f1score(classdata, prediction)))
+        models[i].partial_fit(data, classdata, classes=["vgood","good","acc","unacc"])
+        
 def predict(test_data):
-    global M
-    for i in range(0, M):
-        prediction = models[i].predict(test_data)
-        print('prediction and leng and test_cls len',len(prediction),len(test_class))
-        print("For"+ str(i) + ' Accuracy %f' % (f1score(test_class, prediction)))
+    prediction = []
+    for i in range(0, 100):
+        prediction.append(models[i].predict(test_data))
+    prediction = np.array(prediction).transpose()
+    Final = []
+    for each in prediction:
+        Final.append(Counter(each).most_common(1)[0][0])
+    #print (test_class, Final)
+    print ("Precision is ", precision(test_class, np.array(Final)))
+    print ("Recall is ", recall(test_class, np.array(Final)))
+    print ("F1 score is ", f1score(test_class, np.array(Final)))
+    
 def compare(data,classdata):
     if(len(data)!=len(classdata)):
         return False
@@ -168,9 +167,9 @@ def main():
     global correctWeight
     global epsilon
 
-    M = 10
+    M = 100
     models = []
-    kArr = [0]*100
+    kArr = [0]*1000
     LoadData1("./car.data.txt")
     addModels()
     wrongWeight = [0 for i in range(M)]
@@ -179,25 +178,19 @@ def main():
 
     start = 0
     end = len(train_data)
-    offset = 200
-    data = train_data[start:start + offset]
-    classdata = train_class[start:start + offset]
-    offset=20
-    start += offset
-    print(1,'iteration')
-    print('\n')
-    count = 2
-    initial_fit(data, classdata)
-    while(start <= end):
-        print(count, 'iteration')
-        print('\n')
-        count+=1
+    offset = 1
+    count = 0
+    start_time = time.time()
+    while(start < end):
+        if (count %400 ==0):
+            print(count, 'iteration')
+        count += 1
         data = train_data[start:start + offset]
         classdata = train_class[start:start + offset]
         start += offset
-        fit(data,classdata)
+        fit(data, classdata)
+        
     predict(test_data)
-    print('kArr',kArr)
-
+    print(time.time()-start_time)
 if __name__ == "__main__":main()
 
