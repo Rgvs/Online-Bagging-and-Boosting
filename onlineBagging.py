@@ -1,4 +1,4 @@
-import random as rn
+from random import shuffle
 import numpy as np
 from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.naive_bayes import MultinomialNB
@@ -9,10 +9,10 @@ from sklearn import linear_model
 from sklearn import preprocessing
 from sklearn.ensemble import RandomForestClassifier
 import pandas
-import matplotlib.pyplot as plt
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import BaggingClassifier
+import csv
 
 global train_data
 global train_class
@@ -37,37 +37,43 @@ def LoadData1(path):
     global train_class
     global test_data
     global test_class
+    data = []
+    with open(path, 'rb') as csvfile:
+        data1 = csv.reader(csvfile, delimiter=',', quotechar='|')
+        for each in data1:
+            X = []
+            for x in each:
+                #print x
+                if (x=="vhigh" or x == "5more" or x == "more"):
+                    x=3
+                elif (x=="high" or x == "big" or x == "4"):
+                    x=2
+                elif (x == "med" or x == "3"):
+                    x=1
+                elif (x == "low" or x == "small" or x == "2"):
+                    x=0
+                X.append(x)
+            if (X[-1] == "acc"):
+                for i in range(3):
+                    data.append(X)
+            elif (X[-1] == "good"):
+                for i in range(17):
+                    data.append(X)
+            elif (X[-1] == "vgood"):
+                for i in range(18):
+                    data.append(X)
+            else:
+                data.append(X)
 
-    data = pandas.read_csv(path, sep=",", header=None)
-    print('data', data)
-    data = data.replace(['vhigh', 'high', 'med', 'low',
-                         '2', '3', '4', '5more', 'more',
-                         'small', 'big'],
-                        [int(4), int(3), 2, 1, 2, 3, 4, 6, 6, 1, 3])
-    print(data)
-    minority_majority_class_ratio_C = data[6].value_counts()[2] + data[6].value_counts()[3] / data[6].value_counts()[
-        0] + data[6].value_counts()[1]
-    print("vvvv", data[6].value_counts()[0], minority_majority_class_ratio_C)
-
-
-    print('process', data)
-    data = data.values.tolist()
-    rn.shuffle(data)
-
-    # deviding the data in to test set and training set
+    shuffle(data)
     size = int(len(data) * 0.8)
     train_data = data[0:size]
     test_data = data[size:len(data)]
-
     train_class = np.array(train_data)[:, len(train_data[0]) - 1]
-    print(train_class, "\n")
     train_data = np.array(train_data)[:, range(0, len(train_data[0]) - 1)]
-
-    train_data = [[int(j) for j in i] for i in train_data]
-
-    print(isinstance(train_data[0][0], int))
     test_class = np.array(test_data)[:, len(test_data[0]) - 1]
     test_data = np.array(test_data)[:, range(0, len(test_data[0]) - 1)]
+    train_data = [[int(j) for j in i] for i in train_data]
     test_data = [[int(j) for j in i] for i in test_data]
 
 def addModels():
