@@ -13,6 +13,7 @@ from sklearn.ensemble import AdaBoostClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.ensemble import BaggingClassifier
 import csv
+from collections import Counter
 
 global train_data
 global train_class
@@ -99,12 +100,15 @@ def initial_fit(data,classdata):
         models[i].fit(data,classdata)
 
 def predict(test_data):
+    prediction = []
     for i in range(0, 10):
-        prediction = models[i].predict(test_data)
-        print('prediction and leng and test_cls len',len(prediction),len(test_class))
-        print("For"+ str(i) + ' Accuracy %f' % (f1score(test_class, prediction)))
-
-
+        prediction.append(models[i].predict(test_data))
+    prediction = np.array(prediction).transpose()
+    Final = []
+    for each in prediction:
+        Final.append(Counter(each).most_common(1)[0][0])
+    #print (test_class, Final)
+    print ("Accuracy is ", f1score(test_class, np.array(Final)))
 def main():
     global models
     global  kArr
